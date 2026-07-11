@@ -11,17 +11,19 @@ const firebaseConfig = {
     appId: "1:876518154698:web:58eb635b6f650704362f33"
 };
 
-// Corregido: Agregados los signos '=' faltantes
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// Captura de elementos
 const montoGranTotal = document.getElementById('monto-gran-total');
 const contenedorPendientes = document.getElementById('contenedor-facturas-pendientes');
+const historialPagadas = document.getElementById('historial-pagadas');
 const overlayPago = document.getElementById('overlay-pago');
 const btnRegistrarPago = document.getElementById('btn-registrar-pago');
 const btnCancelarPago = document.getElementById('btn-cancelar-pago');
 const formularioPago = document.getElementById('formulario-pago');
 
+// Lógica de apertura/cierre de modales
 if (btnRegistrarPago) {
     btnRegistrarPago.addEventListener('click', () => {
         if (overlayPago) overlayPago.classList.remove('oculto');
@@ -35,58 +37,78 @@ if (btnCancelarPago) {
     });
 }
 
-if (montoGranTotal && contenedorPendientes) {
+// Escuchar facturas y repartir en paneles correspondientes
+if (montoGranTotal && contenedorPendientes && historialPagadas) {
     onValue(ref(db, 'facturas'), (snapshot) => {
         contenedorPendientes.innerHTML = '';
+        historialPagadas.innerHTML = '';
         let totalAcumulado = 0;
+        let tienePendientes = false;
+        let tienePagadas = false;
         
         if (!snapshot.exists()) {
             montoGranTotal.textContent = "$0.00";
             contenedorPendientes.innerHTML = '<p class="alerta-vacio">No tienes facturas pendientes. ¡Estás al día!</p>';
+            historialPagadas.innerHTML = '<p class="alerta-vacio">No hay registros de facturas pagadas aún.</p>';
             return;
         }
         
         const datos = snapshot.val();
         Object.keys(datos).forEach(id => {
             const factura = datos[id];
+            const div = document.createElement('div');
+            div.className = 'tarjeta-factura';
+            
+            div.innerHTML = `
+                <div class="factura-cabecera">
+                    <span><strong>ID Factura:</strong> ${factura.codigoCorto || id}</span>
+                    <span>${factura.fecha}</span>
+                </div>
+                <div style="margin-bottom: 5px;"><strong>Concepto:</strong> Entrega de productos</div>
+                <div class="factura-monto">$${parseFloat(factura.monto).toFixed(2)}</div>
+            `;
+            
             if (factura.estado === 'pendiente') {
                 totalAcumulado += parseFloat(factura.monto);
-                const div = document.createElement('div');
-                div.className = 'tarjeta-factura';
-                // Corregido: Aplicadas comillas invertidas correctas
-                div.innerHTML = `
-                    <div class="factura-cabecera">
-                        <span><strong>ID Factura:</strong> ${id.substring(1, 8).toUpperCase()}</span>
-                        <span>${factura.fecha || '--/--/----'}</span>
-                    </div>
-                    <div style="margin-bottom: 5px;"><strong>Concepto:</strong> Entrega de productos</div>
-                    <div class="factura-monto" style="color: #1A1A1A;">$${parseFloat(factura.monto).toFixed(2)}</div>
-                `;
                 contenedorPendientes.appendChild(div);
+                tienePendientes = true;
+            } else if (factura.estado === 'pagada') {
+                historialPagadas.appendChild(div);
+                tienePagadas = true;
             }
         });
+        
         montoGranTotal.textContent = `$${totalAcumulado.toFixed(2)}`;
+        
+        if (!tienePendientes) {
+            contenedorPendientes.innerHTML = '<p class="alerta-vacio">¡Felicidades! No tienes facturas pendientes.</p>';
+        }
+        if (!tienePagadas) {
+            historialPagadas.innerHTML = '<p class="alerta-vacio">No hay registros de facturas pagadas aún.</p>';
+        }
     });
 }
 
+// Registrar transacciones de pago
 if (formularioPago) {
     formularioPago.addEventListener('submit', (e) => {
         e.preventDefault();
+        const inputIdFactura = document.getElementById('pago-id-factura');
         const inputMontoPago = document.getElementById('monto-pago');
         const inputReferencia = document.getElementById('referencia-pago');
         
-        if (!inputMontoPago || !inputReferencia) return;
+        if (!inputIdFactura || !inputMontoPago || !inputReferencia) return;
         
         const nuevoPago = {
+            facturaId: inputIdFactura.value.trim(),
             monto: parseFloat(inputMontoPago.value),
             referencia: inputReferencia.value.trim(),
             fecha: new Date().toLocaleDateString(),
             estado: 'comprobando'
         };
         
-        // Corregido: Se cambió nuevoPago.nuevoPago por nuevoPago.monto
-        if (isNaN(nuevoPago.monto) || nuevoPago.monto <= 0 || !nuevoPago.referencia) {
-            alert("Por favor, introduce un monto válido y el número de referencia del pago.");
+        if (isNaN(nuevoPago.monto) || nuevoPago.monto <= 0 || !nuevoPago.referencia || !nuevoPago.facturaId) {
+            alert("Por favor, introduce datos válidos.");
             return;
         }
         
@@ -97,8 +119,8 @@ if (formularioPago) {
                 formularioPago.reset();
             })
             .catch((error) => {
-                console.error("Error al registrar el pago: ", error);
-                alert("No se pudo conectar con la nube para subir el pago.");
+                console.error(error);
+                alert("No se pudo subir el comprobante del pago.");
             });
     });
 }
