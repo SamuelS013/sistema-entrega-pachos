@@ -1,14 +1,14 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, push, onValue } from "firebase/database";
+import { getDatabase, ref, set, push, onValue } from "firebase/database";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyDnCB670iJyud6HcdKnYpgqrTlkbG950BM",
-    authDomain: "sistema-entrega-pachos.firebaseapp.com",
-    databaseURL: "https://sistema-entrega-pachos-default-rtdb.firebaseio.com",
-    projectId: "sistema-entrega-pachos",
-    storageBucket: "sistema-entrega-pachos.firebasestorage.app",
-    messagingSenderId: "876518154698",
-    appId: "1:876518154698:web:58eb635b6f650704362f33"
+  apiKey: "AIzaSyDnCB670iJyud6HcdKnYpgqrTlkbG950BM",
+  authDomain: "sistema-entrega-pachos.firebaseapp.com",
+  databaseURL: "https://sistema-entrega-pachos-default-rtdb.firebaseio.com",
+  projectId: "sistema-entrega-pachos",
+  storageBucket: "sistema-entrega-pachos.firebasestorage.app",
+  messagingSenderId: "876518154698",
+  appId: "1:876518154698:web:58eb635b6f650704362f33"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -23,104 +23,162 @@ const btnRegistrarPago = document.getElementById('btn-registrar-pago');
 const btnCancelarPago = document.getElementById('btn-cancelar-pago');
 const formularioPago = document.getElementById('formulario-pago');
 
+// Variables globales locales para manejo de cascada
+let cacheFacturas = {}; 
+
 // Lógica de apertura/cierre de modales
 if (btnRegistrarPago) {
-    btnRegistrarPago.addEventListener('click', () => {
-        if (overlayPago) overlayPago.classList.remove('oculto');
-    });
+  btnRegistrarPago.addEventListener('click', () => {
+    if (overlayPago) overlayPago.classList.remove('oculto');
+  });
 }
-
 if (btnCancelarPago) {
-    btnCancelarPago.addEventListener('click', () => {
-        if (overlayPago) overlayPago.classList.add('oculto');
-        if (formularioPago) formularioPago.reset();
-    });
+  btnCancelarPago.addEventListener('click', () => {
+    if (overlayPago) overlayPago.classList.add('oculto');
+    if (formularioPago) formularioPago.reset();
+  });
 }
 
 // Escuchar facturas y repartir en paneles correspondientes
 if (montoGranTotal && contenedorPendientes && historialPagadas) {
-    onValue(ref(db, 'facturas'), (snapshot) => {
-        contenedorPendientes.innerHTML = '';
-        historialPagadas.innerHTML = '';
-        let totalAcumulado = 0;
-        let tienePendientes = false;
-        let tienePagadas = false;
-        
-        if (!snapshot.exists()) {
-            montoGranTotal.textContent = "$0.00";
-            contenedorPendientes.innerHTML = '<p class="alerta-vacio">No tienes facturas pendientes. ¡Estás al día!</p>';
-            historialPagadas.innerHTML = '<p class="alerta-vacio">No hay registros de facturas pagadas aún.</p>';
-            return;
-        }
-        
-        const datos = snapshot.val();
-        Object.keys(datos).forEach(id => {
-            const factura = datos[id];
-            const div = document.createElement('div');
-            div.className = 'tarjeta-factura';
-            
-            div.innerHTML = `
-                <div class="factura-cabecera">
-                    <span><strong>ID Factura:</strong> ${factura.codigoCorto || id}</span>
-                    <span>${factura.fecha}</span>
-                </div>
-                <div style="margin-bottom: 5px;"><strong>Concepto:</strong> Entrega de productos</div>
-                <div class="factura-monto">$${parseFloat(factura.monto).toFixed(2)}</div>
-            `;
-            
-            if (factura.estado === 'pendiente') {
-                totalAcumulado += parseFloat(factura.monto);
-                contenedorPendientes.appendChild(div);
-                tienePendientes = true;
-            } else if (factura.estado === 'pagada') {
-                historialPagadas.appendChild(div);
-                tienePagadas = true;
-            }
-        });
-        
-        montoGranTotal.textContent = `$${totalAcumulado.toFixed(2)}`;
-        
-        if (!tienePendientes) {
-            contenedorPendientes.innerHTML = '<p class="alerta-vacio">¡Felicidades! No tienes facturas pendientes.</p>';
-        }
-        if (!tienePagadas) {
-            historialPagadas.innerHTML = '<p class="alerta-vacio">No hay registros de facturas pagadas aún.</p>';
-        }
+  onValue(ref(db, 'facturas'), (snapshot) => {
+    contenedorPendientes.innerHTML = '';
+    historialPagadas.innerHTML = '';
+    let totalAcumulado = 0;
+    let tienePendientes = false;
+    let tienePagadas = false;
+
+    if (!snapshot.exists()) {
+      cacheFacturas = {};
+      montoGranTotal.textContent = "$0.00";
+      contenedorPendientes.innerHTML = '<p class="alerta-vacio">No tienes facturas pendientes. ¡Estás al día!</p>';
+      historialPagadas.innerHTML = '<p class="alerta-vacio">No hay registros de facturas pagadas aún.</p>';
+      return;
+    }
+
+    cacheFacturas = snapshot.val(); // Almacenar en caché para resolver cascada
+
+    Object.keys(cacheFacturas).forEach(id => {
+      const factura = cacheFacturas[id];
+      const div = document.createElement('div');
+      div.className = 'tarjeta-factura';
+      
+      const saldoRestante = parseFloat(factura.saldoRestante ?? factura.monto);
+
+      div.innerHTML = `
+        <div class="factura-cabecera">
+          <span><strong>ID Factura:</strong> ${factura.codigoCorto || id}</span>
+          <span>${factura.fecha}</span>
+        </div>
+        <div style="margin-bottom: 5px;"><strong>Concepto:</strong> Entrega de productos</div>
+        <div class="factura-monto">$${saldoRestante.toFixed(2)}</div>
+        <div style="font-size:11px; color:#777; margin-top:5px;">Original: $${parseFloat(factura.monto).toFixed(2)}</div>
+      `;
+
+      if (factura.estado === 'pendiente') {
+        totalAcumulado += saldoRestante;
+        contenedorPendientes.appendChild(div);
+        tienePendientes = true;
+      } else if (factura.estado === 'pagada') {
+        historialPagadas.appendChild(div);
+        tienePagadas = true;
+      }
     });
+
+    montoGranTotal.textContent = `$${totalAcumulado.toFixed(2)}`;
+
+    if (!tienePendientes) {
+      contenedorPendientes.innerHTML = '<p class="alerta-vacio">¡Felicidades! No tienes facturas pendientes.</p>';
+    }
+    if (!tienePagadas) {
+      historialPagadas.innerHTML = '<p class="alerta-vacio">No hay registros de facturas pagadas aún.</p>';
+    }
+  });
 }
 
-// Registrar transacciones de pago
+// Registrar transacciones con actualización INMEDIATA en Cascada
 if (formularioPago) {
-    formularioPago.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const inputIdFactura = document.getElementById('pago-id-factura');
-        const inputMontoPago = document.getElementById('monto-pago');
-        const inputReferencia = document.getElementById('referencia-pago');
-        
-        if (!inputIdFactura || !inputMontoPago || !inputReferencia) return;
-        
-        const nuevoPago = {
-            facturaId: inputIdFactura.value.trim(),
-            monto: parseFloat(inputMontoPago.value),
-            referencia: inputReferencia.value.trim(),
-            fecha: new Date().toLocaleDateString(),
-            estado: 'comprobando'
-        };
-        
-        if (isNaN(nuevoPago.monto) || nuevoPago.monto <= 0 || !nuevoPago.referencia || !nuevoPago.facturaId) {
-            alert("Por favor, introduce datos válidos.");
-            return;
+  formularioPago.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const inputIdFactura = document.getElementById('pago-id-factura').value.trim();
+    const inputMontoPago = parseFloat(document.getElementById('monto-pago').value);
+    const inputTipo = document.getElementById('tipo-pago').value;
+    const inputReferencia = document.getElementById('referencia-pago').value.trim();
+
+    if (!cacheFacturas[inputIdFactura]) {
+      alert("El ID de factura ingresado no existe en el sistema.");
+      return;
+    }
+
+    if (isNaN(inputMontoPago) || inputMontoPago <= 0) {
+      alert("Por favor, introduce un monto válido.");
+      return;
+    }
+
+    let dineroDisponible = inputMontoPago;
+    
+    // 1. Aplicar dinero a la factura seleccionada originalmente
+    let facturaOriginal = cacheFacturas[inputIdFactura];
+    let saldoOriginal = parseFloat(facturaOriginal.saldoRestante ?? facturaOriginal.monto);
+
+    if (dineroDisponible >= saldoOriginal) {
+      dineroDisponible -= saldoOriginal;
+      facturaOriginal.saldoRestante = 0;
+      facturaOriginal.estado = 'pagada';
+    } else {
+      facturaOriginal.saldoRestante = saldoOriginal - dineroDisponible;
+      dineroDisponible = 0;
+      facturaOriginal.estado = 'pendiente';
+    }
+
+    // Guardar actualización de la primera factura
+    set(ref(db, `facturas/${inputIdFactura}`), facturaOriginal);
+
+    // 2. Lógica del "Efecto Cascada": Si queda remanente (> 0), buscar siguientes facturas pendientes
+    if (dineroDisponible > 0) {
+      const llavesFacturas = Object.keys(cacheFacturas).filter(id => id !== inputIdFactura);
+      
+      for (let id of llavesFacturas) {
+        let otraFactura = cacheFacturas[id];
+        if (otraFactura.estado === 'pendiente') {
+          let saldoOtra = parseFloat(otraFactura.saldoRestante ?? otraFactura.monto);
+          
+          if (dineroDisponible >= saldoOtra) {
+            dineroDisponible -= saldoOtra;
+            otraFactura.saldoRestante = 0;
+            otraFactura.estado = 'pagada';
+          } else {
+            otraFactura.saldoRestante = saldoOtra - dineroDisponible;
+            dineroDisponible = 0;
+            otraFactura.estado = 'pendiente';
+          }
+          
+          // Actualizamos la factura alcanzada por la cascada en Firebase
+          set(ref(db, `facturas/${id}`), otraFactura);
         }
-        
-        push(ref(db, 'pagos'), nuevoPago)
-            .then(() => {
-                alert("¡Pago registrado con éxito! Pendiente por aprobación del fiador.");
-                if (overlayPago) overlayPago.classList.add('oculto');
-                formularioPago.reset();
-            })
-            .catch((error) => {
-                console.error(error);
-                alert("No se pudo subir el comprobante del pago.");
-            });
-    });
+        if (dineroDisponible <= 0) break;
+      }
+    }
+
+    // Registrar el log del pago directamente como aceptado (sin confirmación manual del fiador)
+    const nuevoPago = {
+      facturaId: inputIdFactura,
+      monto: inputMontoPago,
+      tipoPago: inputTipo,
+      referencia: inputReferencia,
+      fecha: new Date().toLocaleDateString(),
+      fotoComprobanteSimulada: "Archivo cargado en cliente"
+    };
+
+    push(ref(db, 'pagos'), nuevoPago)
+      .then(() => {
+        alert("¡Pago procesado y balance actualizado automáticamente!");
+        if (overlayPago) overlayPago.classList.add('oculto');
+        formularioPago.reset();
+      })
+      .catch((error) => {
+        console.error(error);
+        alert("Error al registrar el reporte de pago.");
+      });
+  });
 }

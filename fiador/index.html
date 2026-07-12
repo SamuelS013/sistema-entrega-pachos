@@ -17,40 +17,38 @@
             <button id="btn-generar-factura" class="btn-primario">Crear Entrega / Factura</button>
             
             <div id="overlay-factura" class="capa-oscura-fondo oculto">
-                <div id="contenedor-formulario" class="cuadro-formulario">
-                    <h3>Nueva Factura</h3>
-                    <form id="formulario-factura">
-                        <div class="meta-info-automatica">
-                            <p><strong>ID Factura:</strong> <span id="factura-id-automatico">----</span></p>
-                            <p><strong>Fecha:</strong> <span id="factura-fecha-automatica">--/--/----</span></p>
-                        </div>
-                        <div class="grupo-input">
-                            <label for="nombre-deudor">Nombre del Deudor: </label>
-                            <input type="text" id="nombre-deudor" placeholder="Nombre del deudor" required>
-                        </div>
-                        <div class="grupo-input">
-                            <label>Productos: </label>
-                            <div id="lista-productos-inputs">
-                                <!-- Fila inicial de producto -->
-                                <div class="fila-producto" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                                    <input type="text" placeholder="Producto" class="prod-nombre" required style="flex: 2;">
-                                    <input type="number" placeholder="Cant." class="prod-cantidad" min="1" value="1" required style="flex: 0.5;">
-                                    <input type="number" placeholder="Precio U." class="prod-precio" min="0" step="0.01" required style="flex: 1;">
-                                </div>
-                            </div>
-                            <button type="button" id="btn-agregar-producto" class="btn-secundario" style="margin-top: 10px;">+ Añadir otro producto</button>
-                        </div>
-                        <div class="monto-total-container" style="text-align: right; font-size: 20px; font-weight: bold; margin-top: 15px;">
-                            <span>Monto Total: $</span>
-                            <span id="monto-total-automatico">0.00</span>
-                        </div>
-                        <div class="acciones-formulario" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                            <button type="button" id="btn-cancelar" class="btn-cancelar">Cerrar Ventana</button>
-                            <button type="submit" class="btn-confirmar">Cerrar Factura</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+					  <div id="contenedor-formulario" class="cuadro-formulario">
+						<h3>Nueva Factura</h3>
+						<form id="formulario-factura">
+						  <div class="meta-info-automatica">
+							<p><strong>ID Factura:</strong> <span id="factura-id-automatico">----</span></p>
+							<p><strong>Fecha:</strong> <span id="factura-fecha-automatica">--/--/----</span></p>
+						  </div>
+						  <div class="grupo-input">
+							<label for="nombre-deudor">Nombre del Deudor: </label>
+							<input type="text" id="nombre-deudor" placeholder="Nombre del deudor" required>
+						  </div>
+						  <div class="grupo-input">
+							<label>Productos: </label>
+							<div id="lista-productos-inputs">
+							  <div class="fila-producto" style="display: flex; gap: 10px; margin-bottom: 10px;">
+								<input type="text" placeholder="Producto" class="prod-nombre" required style="flex: 2;">
+								<input type="number" placeholder="Cant." class="prod-cantidad" min="1" value="1" required style="flex: 0.5;">
+								<input type="number" placeholder="Precio U." class="prod-precio" min="0" step="0.01" required style="flex: 1;">
+							  </div>
+							</div>
+							<button type="button" id="btn-agregar-producto" style="margin-top: 10px; ">+ Añadir otro producto</button>
+						  </div>
+						  <div class="monto-total-container">
+							<span>Monto Total: $</span><span id="monto-total-automatico">0.00</span>
+						  </div>
+						  <div class="acciones-formulario">
+							<button type="button" id="btn-cancelar" class="btn-cancelar">Cerrar Ventana</button>
+							<button type="submit" class="btn-confirmar">Cerrar Factura</button>
+						  </div>
+						</form>
+					  </div>
+					</div>
         </section>
 
         <section class="seccion-listas">
