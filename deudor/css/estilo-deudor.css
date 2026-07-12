@@ -215,3 +215,73 @@ body {
   margin-top: 50px;
   font-style: italic;
 }
+
+/* ==========================================
+   ADAPTACIÓN PARA CELULARES (TODO HACIA ABAJO)
+   ========================================== */
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
+
+  .header-sistema {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .header-sistema h1 {
+    font-size: 20px;
+  }
+
+  .tarjeta-saldo-total {
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+
+  .monto-gran-total {
+    font-size: 32px;
+  }
+
+  .btn-primario {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Las columnas de cuentas pendientes e historial pasan a ser una sola */
+  .seccion-listas {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  /* Ventana modal flotante adaptada para scroll natural */
+  .capa-oscura-fondo {
+    align-items: flex-start;
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  .cuadro-formulario {
+    width: 100%;
+    padding: 15px;
+    margin: 10px 0;
+    max-height: none;
+  }
+
+  /* El ID y fecha de las tarjetas individuales también se apilan si hace falta */
+  .factura-cabecera {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Botones del formulario uno debajo del otro */
+  .acciones-formulario {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .acciones-formulario button {
+    width: 100%;
+  }
+}

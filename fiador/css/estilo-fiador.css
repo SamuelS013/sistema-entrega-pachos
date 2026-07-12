@@ -256,3 +256,80 @@ body {
   margin-top: 50px;
   font-style: italic;
 }
+
+/* ==========================================
+   ADAPTACIÓN PARA CELULARES (TODO HACIA ABAJO)
+   ========================================== */
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
+
+  .header-sistema {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .header-sistema h1 {
+    font-size: 20px;
+  }
+
+  .btn-primario {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* El historial y los pagos recibidos pasan de 2 columnas a 1 sola */
+  .seccion-listas {
+    grid-template-columns: 1fr;
+    gap: 25px;
+    margin-top: 25px;
+  }
+
+  /* Ventana modal flotante con scroll de pantalla completa */
+  .capa-oscura-fondo {
+    align-items: flex-start;
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  .cuadro-formulario {
+    width: 100%;
+    padding: 15px;
+    margin: 10px 0;
+    max-height: none;
+  }
+
+  /* ID y Fecha automáticos uno debajo de otro */
+  .meta-info-automatica {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  /* Las filas de los productos individuales se apilan hacia abajo */
+  .fila-producto {
+    flex-direction: column;
+    align-items: stretch;
+    background-color: var(--gris-claro);
+    padding: 10px;
+    border-radius: 6px;
+    gap: 8px;
+  }
+
+  .fila-producto input {
+    width: 100% !important;
+    text-align: left !important;
+  }
+
+  /* Los botones de cerrar y cancelar ventana se apilan */
+  .acciones-formulario {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .acciones-formulario button {
+    width: 100%;
+  }
+}
