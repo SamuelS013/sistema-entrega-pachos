@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, push, onValue } from "firebase/database";
+import { getDatabase, ref, set, push, onValue, remove } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDnCB670iJyud6HcdKnYpgqrTlkbG950BM",
@@ -22,11 +22,62 @@ const overlayPago = document.getElementById('overlay-pago');
 const btnRegistrarPago = document.getElementById('btn-registrar-pago');
 const btnCancelarPago = document.getElementById('btn-cancelar-pago');
 const formularioPago = document.getElementById('formulario-pago');
+const btnEliminarPagadas = document.getElementById('btn-eliminar-pagadas');
 
 // Variables globales locales para manejo de cascada
 let cacheFacturas = {}; 
 
+// ==========================================
+// 🟢 NUEVA FUNCIÓN: Eliminar todas las facturas pagadas
+// ==========================================
+if (btnEliminarPagadas) {
+    btnEliminarPagadas.addEventListener('click', () => {
+        const facturasRef = ref(db, 'facturas');
+        
+        onValue(facturasRef, (snapshot) => {
+            if (!snapshot.exists()) {
+                alert('No hay facturas para eliminar.');
+                return;
+            }
+            
+            const datos = snapshot.val();
+            const idsPagadas = Object.keys(datos).filter(id => datos[id].estado === 'pagada');
+            
+            if (idsPagadas.length === 0) {
+                alert('No hay facturas pagadas para eliminar.');
+                return;
+            }
+            
+            const confirmacion = confirm(
+                '⚠️ ¿Estás seguro de que deseas eliminar TODAS tus facturas pagadas?\n\n' +
+                'Se eliminarán ' + idsPagadas.length + ' factura(s) pagada(s).\n' +
+                'Las facturas pendientes NO serán afectadas.\n\n' +
+                'Esta acción no se puede deshacer.'
+            );
+            
+            if (!confirmacion) return;
+            
+            let eliminadas = 0;
+            idsPagadas.forEach(id => {
+                remove(ref(db, 'facturas/' + id))
+                    .then(() => {
+                        eliminadas++;
+                        if (eliminadas === idsPagadas.length) {
+                            alert('✅ Se eliminaron ' + eliminadas + ' factura(s) pagada(s) exitosamente.');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error al eliminar factura:', error);
+                        alert('❌ Error al eliminar algunas facturas. Revisa la consola.');
+                    });
+            });
+        }, { onlyOnce: true });
+    });
+}
+
+// ==========================================
 // Lógica de apertura/cierre de modales
+// ==========================================
 if (btnRegistrarPago) {
   btnRegistrarPago.addEventListener('click', () => {
     if (overlayPago) overlayPago.classList.remove('oculto');
@@ -39,7 +90,10 @@ if (btnCancelarPago) {
   });
 }
 
+// ==========================================
 // Escuchar facturas y repartir en paneles correspondientes
+// 🟢 MODIFICADO: Orden PILA (más recientes arriba)
+// ==========================================
 if (montoGranTotal && contenedorPendientes && historialPagadas) {
   onValue(ref(db, 'facturas'), (snapshot) => {
     contenedorPendientes.innerHTML = '';
@@ -56,9 +110,24 @@ if (montoGranTotal && contenedorPendientes && historialPagadas) {
       return;
     }
 
-    cacheFacturas = snapshot.val(); // Almacenar en caché para resolver cascada
+    cacheFacturas = snapshot.val();
 
-    Object.keys(cacheFacturas).forEach(id => {
+    // 🟢 ORDENAR: Más recientes primero (PILA)
+    const keys = Object.keys(cacheFacturas);
+    keys.sort((a, b) => {
+      const fechaA = cacheFacturas[a].fecha || '';
+      const fechaB = cacheFacturas[b].fecha || '';
+      if (fechaA && fechaB) {
+        const partesA = fechaA.split('/');
+        const partesB = fechaB.split('/');
+        const tsA = new Date(partesA[2], partesA[1] - 1, partesA[0]).getTime();
+        const tsB = new Date(partesB[2], partesB[1] - 1, partesB[0]).getTime();
+        return tsB - tsA;
+      }
+      return parseInt(b) - parseInt(a);
+    });
+
+    keys.forEach(id => {
       const factura = cacheFacturas[id];
       const div = document.createElement('div');
       div.className = 'tarjeta-factura';
@@ -85,7 +154,7 @@ if (montoGranTotal && contenedorPendientes && historialPagadas) {
       }
     });
 
-    montoGranTotal.textContent = `$${totalAcumulado.toFixed(2)}`;
+    montoGranTotal.textContent = '$' + totalAcumulado.toFixed(2);
 
     if (!tienePendientes) {
       contenedorPendientes.innerHTML = '<p class="alerta-vacio">¡Felicidades! No tienes facturas pendientes.</p>';
@@ -96,7 +165,9 @@ if (montoGranTotal && contenedorPendientes && historialPagadas) {
   });
 }
 
+// ==========================================
 // Registrar transacciones con actualización INMEDIATA en Cascada
+// ==========================================
 if (formularioPago) {
   formularioPago.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -117,7 +188,6 @@ if (formularioPago) {
 
     let dineroDisponible = inputMontoPago;
     
-    // 1. Aplicar dinero a la factura seleccionada originalmente
     let facturaOriginal = cacheFacturas[inputIdFactura];
     let saldoOriginal = parseFloat(facturaOriginal.saldoRestante ?? facturaOriginal.monto);
 
@@ -131,10 +201,8 @@ if (formularioPago) {
       facturaOriginal.estado = 'pendiente';
     }
 
-    // Guardar actualización de la primera factura
-    set(ref(db, `facturas/${inputIdFactura}`), facturaOriginal);
+    set(ref(db, 'facturas/' + inputIdFactura), facturaOriginal);
 
-    // 2. Lógica del "Efecto Cascada": Si queda remanente (> 0), buscar siguientes facturas pendientes
     if (dineroDisponible > 0) {
       const llavesFacturas = Object.keys(cacheFacturas).filter(id => id !== inputIdFactura);
       
@@ -153,14 +221,12 @@ if (formularioPago) {
             otraFactura.estado = 'pendiente';
           }
           
-          // Actualizamos la factura alcanzada por la cascada en Firebase
-          set(ref(db, `facturas/${id}`), otraFactura);
+          set(ref(db, 'facturas/' + id), otraFactura);
         }
         if (dineroDisponible <= 0) break;
       }
     }
 
-    // Registrar el log del pago directamente como aceptado (sin confirmación manual del fiador)
     const nuevoPago = {
       facturaId: inputIdFactura,
       monto: inputMontoPago,

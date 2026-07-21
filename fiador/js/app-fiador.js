@@ -26,9 +26,108 @@ const lblMontoTotal = document.getElementById('monto-total-automatico');
 const lblIdFactura = document.getElementById('factura-id-automatico');
 const lblFechaFactura = document.getElementById('factura-fecha-automatica');
 
+// 🟢 NUEVOS ELEMENTOS
+const montoTotalAdeudado = document.getElementById('monto-total-adeudado');
+const btnEliminarFacturasPagadas = document.getElementById('btn-eliminar-facturas-pagadas');
+const btnEliminarPagos = document.getElementById('btn-eliminar-pagos');
+
 let idFacturaActual = "";
 
+// ==========================================
+// 🟢 NUEVA FUNCIÓN: Eliminar todas las facturas pagadas
+// ==========================================
+if (btnEliminarFacturasPagadas) {
+    btnEliminarFacturasPagadas.addEventListener('click', () => {
+        const facturasRef = ref(db, 'facturas');
+        
+        onValue(facturasRef, (snapshot) => {
+            if (!snapshot.exists()) {
+                alert('No hay facturas para eliminar.');
+                return;
+            }
+            
+            const datos = snapshot.val();
+            const idsPagadas = Object.keys(datos).filter(id => datos[id].estado === 'pagada');
+            
+            if (idsPagadas.length === 0) {
+                alert('No hay facturas pagadas para eliminar.');
+                return;
+            }
+            
+            const confirmacion = confirm(
+                '⚠️ ¿Estás seguro de que deseas eliminar TODAS las facturas pagadas?\n\n' +
+                'Se eliminarán ' + idsPagadas.length + ' factura(s) pagada(s).\n' +
+                'Las facturas pendientes NO serán afectadas.\n\n' +
+                'Esta acción no se puede deshacer.'
+            );
+            
+            if (!confirmacion) return;
+            
+            let eliminadas = 0;
+            idsPagadas.forEach(id => {
+                remove(ref(db, 'facturas/' + id))
+                    .then(() => {
+                        eliminadas++;
+                        if (eliminadas === idsPagadas.length) {
+                            alert('✅ Se eliminaron ' + eliminadas + ' factura(s) pagada(s) exitosamente.');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error al eliminar factura:', error);
+                        alert('❌ Error al eliminar algunas facturas. Revisa la consola.');
+                    });
+            });
+        }, { onlyOnce: true });
+    });
+}
+
+// ==========================================
+// 🟢 NUEVA FUNCIÓN: Eliminar todos los pagos
+// ==========================================
+if (btnEliminarPagos) {
+    btnEliminarPagos.addEventListener('click', () => {
+        const pagosRef = ref(db, 'pagos');
+        
+        onValue(pagosRef, (snapshot) => {
+            if (!snapshot.exists()) {
+                alert('No hay pagos para eliminar.');
+                return;
+            }
+            
+            const datos = snapshot.val();
+            const idsPagos = Object.keys(datos);
+            
+            const confirmacion = confirm(
+                '⚠️ ¿Estás seguro de que deseas eliminar TODOS los pagos registrados?\n\n' +
+                'Se eliminarán ' + idsPagos.length + ' registro(s) de pago.\n\n' +
+                '⚠️ IMPORTANTE: Esto NO afecta el saldo de las facturas.\n' +
+                'Solo elimina el historial de pagos.\n\n' +
+                'Esta acción no se puede deshacer.'
+            );
+            
+            if (!confirmacion) return;
+            
+            let eliminados = 0;
+            idsPagos.forEach(id => {
+                remove(ref(db, 'pagos/' + id))
+                    .then(() => {
+                        eliminados++;
+                        if (eliminados === idsPagos.length) {
+                            alert('✅ Se eliminaron ' + eliminados + ' registro(s) de pago exitosamente.');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error al eliminar pago:', error);
+                        alert('❌ Error al eliminar algunos pagos. Revisa la consola.');
+                    });
+            });
+        }, { onlyOnce: true });
+    });
+}
+
+// ==========================================
 // Función para calcular el monto total sumando cada fila
+// ==========================================
 function calcularTotalFactura() {
   let total = 0;
   const filas = listaProductosInputs.querySelectorAll('.fila-producto');
@@ -44,7 +143,7 @@ function calcularTotalFactura() {
 // Escuchar cambios en los inputs de productos de manera dinámica
 listaProductosInputs.addEventListener('input', calcularTotalFactura);
 
-// Botón añadir producto dinámico corregido (El appendChild va ADENTRO)
+// Botón añadir producto dinámico
 if (btnAgregarProducto) {
   btnAgregarProducto.addEventListener('click', () => {
     const nuevaFila = document.createElement('div');
@@ -95,24 +194,52 @@ function resetearFormulario() {
   lblMontoTotal.textContent = "0.00";
 }
 
-// Renderizar historial de facturas en tiempo real con botón de anulación incorporado
+// ==========================================
+// Renderizar historial de facturas en tiempo real
+// 🟢 MODIFICADO: Orden PILA + Cálculo total adeudado
+// ==========================================
 if (contenedorFacturas) {
   onValue(ref(db, 'facturas'), (snapshot) => {
     contenedorFacturas.innerHTML = '';
+    let totalAdeudado = 0;
+
     if (!snapshot.exists()) {
       contenedorFacturas.innerHTML = '<p class="alerta-vacio">No hay facturas registradas en el historial.</p>';
+      if (montoTotalAdeudado) montoTotalAdeudado.textContent = '$0.00';
       return;
     }
     
     const datos = snapshot.val();
-    Object.keys(datos).forEach(id => {
+    
+    // 🟢 ORDENAR: Más recientes primero (PILA)
+    const keys = Object.keys(datos);
+    keys.sort((a, b) => {
+      const fechaA = datos[a].fecha || '';
+      const fechaB = datos[b].fecha || '';
+      if (fechaA && fechaB) {
+        const partesA = fechaA.split('/');
+        const partesB = fechaB.split('/');
+        const tsA = new Date(partesA[2], partesA[1] - 1, partesA[0]).getTime();
+        const tsB = new Date(partesB[2], partesB[1] - 1, partesB[0]).getTime();
+        return tsB - tsA;
+      }
+      return parseInt(b) - parseInt(a);
+    });
+
+    keys.forEach(id => {
       const factura = datos[id];
       const div = document.createElement('div');
       div.className = 'tarjeta-factura';
       
-      // Mostrar botón de anular solo si no está pagada completamente
+      const saldoRestante = parseFloat(factura.saldoRestante ?? factura.monto);
+      
+      // 🟢 Calcular total adeudado (solo pendientes)
+      if (factura.estado === 'pendiente') {
+        totalAdeudado += saldoRestante;
+      }
+      
       const botonAnular = factura.estado !== 'pagada' 
-        ? `<button class="btn-anular-historial" data-id="${id}">Anular Factura</button>` 
+        ? '<button class="btn-anular-historial" data-id="' + id + '">Anular Factura</button>' 
         : '';
 
       div.innerHTML = `
@@ -122,18 +249,23 @@ if (contenedorFacturas) {
         </div>
         <div style="margin-bottom: 5px;"><strong>Deudor:</strong> ${factura.deudor}</div>
         <div class="factura-monto">$${parseFloat(factura.monto).toFixed(2)}</div>
-        <div style="font-size: 12px; margin-top: 5px;"><strong>Estado:</strong> ${factura.estado.toUpperCase()} | <strong>Restante:</strong> $${parseFloat(factura.saldoRestante ?? factura.monto).toFixed(2)}</div>
+        <div style="font-size: 12px; margin-top: 5px;"><strong>Estado:</strong> ${factura.estado.toUpperCase()} | <strong>Restante:</strong> $${saldoRestante.toFixed(2)}</div>
         ${botonAnular}
       `;
       contenedorFacturas.appendChild(div);
     });
 
+    // 🟢 Actualizar el total adeudado
+    if (montoTotalAdeudado) {
+      montoTotalAdeudado.textContent = '$' + totalAdeudado.toFixed(2);
+    }
+
     // Asignar eventos a los botones de anular agregados dinámicamente
     document.querySelectorAll('.btn-anular-historial').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const idAnular = e.target.getAttribute('data-id');
-        if (confirm(`¿Estás seguro de que deseas anular la factura #${idAnular}?`)) {
-          remove(ref(db, `facturas/${idAnular}`))
+        if (confirm('¿Estás seguro de que deseas anular la factura #' + idAnular + '?')) {
+          remove(ref(db, 'facturas/' + idAnular))
             .then(() => alert('Factura anulada exitosamente.'))
             .catch(() => alert('Error al anular la factura.'));
         }
@@ -142,7 +274,10 @@ if (contenedorFacturas) {
   });
 }
 
-// Escuchar y listar los Pagos Recibidos en tiempo real (Vista limpia de transacciones de abono)
+// ==========================================
+// Escuchar y listar los Pagos Recibidos
+// 🟢 MODIFICADO: Orden PILA (más recientes arriba)
+// ==========================================
 const historialPagos = document.getElementById('historial-pagos');
 if (historialPagos) {
   onValue(ref(db, 'pagos'), (snapshot) => {
@@ -152,7 +287,23 @@ if (historialPagos) {
       return;
     }
     const pagos = snapshot.val();
-    Object.keys(pagos).forEach(key => {
+    
+    // 🟢 ORDENAR: Más recientes primero (PILA)
+    const keys = Object.keys(pagos);
+    keys.sort((a, b) => {
+      const fechaA = pagos[a].fecha || '';
+      const fechaB = pagos[b].fecha || '';
+      if (fechaA && fechaB) {
+        const tsA = new Date(fechaA).getTime();
+        const tsB = new Date(fechaB).getTime();
+        if (!isNaN(tsA) && !isNaN(tsB)) {
+          return tsB - tsA;
+        }
+      }
+      return parseInt(b) - parseInt(a);
+    });
+
+    keys.forEach(key => {
       const p = pagos[key];
       const div = document.createElement('div');
       div.className = 'tarjeta-factura';
@@ -170,7 +321,9 @@ if (historialPagos) {
   });
 }
 
+// ==========================================
 // Guardar la factura estructurada con productos y saldo restante
+// ==========================================
 if (formularioFactura) {
   formularioFactura.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -182,7 +335,6 @@ if (formularioFactura) {
       return;
     }
 
-    // Extraer array de productos ingresados
     const productosArr = [];
     listaProductosInputs.querySelectorAll('.fila-producto').forEach(fila => {
       productosArr.push({
@@ -196,16 +348,16 @@ if (formularioFactura) {
       codigoCorto: idFacturaActual,
       deudor: inputDeudor.value.trim(),
       monto: montoFinal,
-      saldoRestante: montoFinal, // Inicia con el total
+      saldoRestante: montoFinal,
       fecha: new Date().toLocaleDateString(),
       estado: 'pendiente',
       productos: productosArr
     };
 
-    set(ref(db, `facturas/${idFacturaActual}`), nuevaFactura)
+    set(ref(db, 'facturas/' + idFacturaActual), nuevaFactura)
       .then(() => {
         if (overlayFactura) overlayFactura.classList.add('oculto');
-        alert(`Factura #${idFacturaActual} guardada exitosamente.`);
+        alert('Factura #' + idFacturaActual + ' guardada exitosamente.');
         resetearFormulario();
       })
       .catch((error) => {

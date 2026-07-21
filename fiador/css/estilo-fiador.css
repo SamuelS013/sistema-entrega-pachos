@@ -257,6 +257,58 @@ body {
   font-style: italic;
 }
 
+/* Título con acción (icono de papelera) */
+.titulo-con-accion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.titulo-con-accion h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.btn-eliminar-todo {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    color: #999;
+}
+
+.btn-eliminar-todo:hover {
+    background-color: #e63946;
+    color: white;
+    transform: scale(1.1);
+}
+
+.btn-eliminar-todo:active {
+    transform: scale(0.95);
+}
+
+/* Tarjeta de Saldo Total Adeudado (para el Fiador) */
+.tarjeta-saldo-total {
+    background-color: var(--blanco);
+    border: 2px solid var(--negro);
+    padding: 25px;
+    text-align: center;
+    border-radius: 8px;
+    margin-bottom: 30px;
+}
+
+.tarjeta-saldo-total h2 {
+    font-size: 16px;
+    text-transform: uppercase;
+    color: #555;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
 /* ==========================================
    ADAPTACIÓN PARA CELULARES (TODO HACIA ABAJO)
    ========================================== */
@@ -332,4 +384,13 @@ body {
   .acciones-formulario button {
     width: 100%;
   }
+  
+  .monto-gran-total {
+        font-size: 32px;
+   }
+    
+	.titulo-con-accion {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
 }

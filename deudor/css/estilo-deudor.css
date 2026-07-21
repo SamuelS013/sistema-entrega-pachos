@@ -216,6 +216,40 @@ body {
   font-style: italic;
 }
 
+/* Título con acción (icono de papelera) */
+.titulo-con-accion {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.titulo-con-accion h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.btn-eliminar-todo {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    color: #999;
+}
+
+.btn-eliminar-todo:hover {
+    background-color: #e63946;
+    color: white;
+    transform: scale(1.1);
+}
+
+.btn-eliminar-todo:active {
+    transform: scale(0.95);
+}
+
 /* ==========================================
    ADAPTACIÓN PARA CELULARES (TODO HACIA ABAJO)
    ========================================== */
@@ -284,4 +318,13 @@ body {
   .acciones-formulario button {
     width: 100%;
   }
+  
+	.monto-gran-total {
+        font-size: 32px;
+    }
+    
+    .titulo-con-accion {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
 }
